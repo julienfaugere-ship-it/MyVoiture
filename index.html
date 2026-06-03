@@ -1,0 +1,1625 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoSuivi — Gestion de flotte</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f0f2f7;
+    --surface: #ffffff;
+    --surface2: #f5f6fa;
+    --border: #e2e5ef;
+    --accent: #2563eb;
+    --accent2: #0ea5e9;
+    --danger: #ef4444;
+    --success: #16a34a;
+    --warn: #f59e0b;
+    --text: #111827;
+    --text-muted: #9ca3af;
+    --text-dim: #6b7280;
+    --radius: 12px;
+    --radius-lg: 18px;
+    --font-head: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --shadow: 0 2px 16px rgba(0,0,0,0.08);
+    --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ===== LAYOUT ===== */
+  .app-shell {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    grid-template-rows: auto 1fr;
+    min-height: 100vh;
+  }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    grid-row: 1 / 3;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 16px;
+    gap: 8px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .logo {
+    font-family: var(--font-head);
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+    padding: 0 8px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .logo span { color: var(--text); font-weight: 400; }
+
+  .nav-section-title {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    padding: 12px 8px 4px;
+  }
+
+  .nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    width: 100%;
+    text-align: left;
+  }
+  .nav-btn:hover { background: var(--surface2); color: var(--text); }
+  .nav-btn.active { background: rgba(232,197,71,0.12); color: var(--accent); }
+  .nav-btn .icon { font-size: 18px; width: 22px; text-align: center; }
+
+  /* ===== TOPBAR ===== */
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .page-title {
+    font-family: var(--font-head);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    border-radius: var(--radius);
+    border: none;
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .btn-primary { background: var(--accent); color: #1a1400; }
+  .btn-primary:hover { background: #f0d060; transform: translateY(-1px); }
+  .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+  .btn-danger { background: rgba(255,92,92,0.15); color: var(--danger); border: 1px solid rgba(255,92,92,0.3); }
+  .btn-danger:hover { background: rgba(255,92,92,0.25); }
+  .btn-sm { padding: 6px 12px; font-size: 13px; }
+
+  /* ===== MAIN ===== */
+  .main-content {
+    padding: 28px;
+    overflow-y: auto;
+  }
+
+  /* ===== VIEWS ===== */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ===== VEHICLE CARDS ===== */
+  .vehicles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 24px;
+  }
+
+  .vehicle-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+    cursor: pointer;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+  }
+  .vehicle-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    opacity: 0;
+    transition: var(--transition);
+  }
+  .vehicle-card:hover { border-color: rgba(232,197,71,0.3); transform: translateY(-3px); box-shadow: var(--shadow); }
+  .vehicle-card:hover::before { opacity: 1; }
+
+  .vehicle-icon {
+    font-size: 36px;
+    margin-bottom: 14px;
+    display: block;
+  }
+
+  .vehicle-name {
+    font-family: var(--font-head);
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .vehicle-meta {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+
+  .vehicle-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .stat-chip {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  .stat-chip .label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-chip .value { font-size: 15px; font-weight: 600; color: var(--text); margin-top: 2px; }
+
+  .alert-dot {
+    position: absolute;
+    top: 16px; right: 16px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--warn);
+    box-shadow: 0 0 8px var(--warn);
+  }
+
+  /* ===== ADD VEHICLE CARD ===== */
+  .add-vehicle-card {
+    background: transparent;
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 180px;
+    gap: 10px;
+    color: var(--text-muted);
+  }
+  .add-vehicle-card:hover { border-color: var(--accent); color: var(--accent); }
+  .add-vehicle-card .plus { font-size: 32px; }
+
+  /* ===== MODALS ===== */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .modal-title {
+    font-family: var(--font-head);
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .modal-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 22px;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+  }
+  .modal-close:hover { color: var(--text); }
+
+  /* ===== FORMS ===== */
+  .form-group { margin-bottom: 16px; }
+  .form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .form-input, .form-select, .form-textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 14px;
+    transition: var(--transition);
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(232,197,71,0.1);
+  }
+  .form-select option { background: var(--surface); }
+  .form-textarea { resize: vertical; min-height: 80px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+
+  /* ===== TABS ===== */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface2);
+    border-radius: var(--radius);
+    padding: 4px;
+    margin-bottom: 24px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tab-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tab-btn.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+
+  /* ===== EXPENSE TABLE ===== */
+  .table-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th {
+    background: var(--surface2);
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table td {
+    padding: 13px 16px;
+    border-bottom: 1px solid rgba(37,42,56,0.5);
+    font-size: 14px;
+    vertical-align: middle;
+  }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tbody tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .badge-fuel { background: rgba(58,158,255,0.15); color: var(--accent2); }
+  .badge-repair { background: rgba(255,92,92,0.15); color: var(--danger); }
+  .badge-maintenance { background: rgba(232,197,71,0.15); color: var(--accent); }
+  .badge-insurance { background: rgba(77,206,138,0.15); color: var(--success); }
+  .badge-other { background: rgba(107,114,128,0.2); color: var(--text-dim); }
+  .badge-control { background: rgba(255,159,67,0.15); color: var(--warn); }
+
+  .amount-cell { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* ===== STATS / KPI ===== */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+  }
+
+  .kpi-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+  .kpi-value { font-family: var(--font-head); font-size: 26px; font-weight: 800; letter-spacing: -1px; }
+  .kpi-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  .kpi-accent { color: var(--accent); }
+  .kpi-danger { color: var(--danger); }
+  .kpi-success { color: var(--success); }
+
+  /* ===== CALENDAR / REMINDERS ===== */
+  .reminders-list { display: flex; flex-direction: column; gap: 12px; }
+
+  .reminder-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .reminder-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .reminder-icon.overdue { background: rgba(255,92,92,0.15); }
+  .reminder-icon.soon { background: rgba(255,159,67,0.15); }
+  .reminder-icon.ok { background: rgba(77,206,138,0.15); }
+
+  .reminder-body { flex: 1; min-width: 0; }
+  .reminder-title { font-weight: 600; font-size: 15px; margin-bottom: 3px; }
+  .reminder-meta { font-size: 12px; color: var(--text-muted); }
+
+  .days-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .days-badge.overdue { background: rgba(255,92,92,0.2); color: var(--danger); }
+  .days-badge.soon { background: rgba(255,159,67,0.2); color: var(--warn); }
+  .days-badge.ok { background: rgba(77,206,138,0.15); color: var(--success); }
+
+  /* ===== CHART ===== */
+  .chart-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+    margin-bottom: 24px;
+  }
+  .chart-title {
+    font-family: var(--font-head);
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 20px;
+    color: var(--text-dim);
+  }
+  .chart-title span { color: var(--text); }
+
+  .bar-chart { display: flex; align-items: flex-end; gap: 8px; height: 160px; }
+  .bar-group { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .bar {
+    width: 100%;
+    border-radius: 6px 6px 0 0;
+    transition: height 0.5s cubic-bezier(0.4,0,0.2,1), opacity 0.2s;
+    min-height: 4px;
+    cursor: pointer;
+  }
+  .bar:hover { opacity: 0.8; }
+  .bar-label { font-size: 10px; color: var(--text-muted); text-align: center; }
+  .bar-amount { font-size: 10px; color: var(--text-dim); font-weight: 600; }
+
+  /* ===== BACK BUTTON ===== */
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: var(--text-muted);
+    cursor: pointer;
+    border: none;
+    background: none;
+    font-family: var(--font-body);
+    padding: 0;
+    margin-bottom: 20px;
+    transition: var(--transition);
+  }
+  .back-btn:hover { color: var(--text); }
+
+  /* ===== VEHICLE DETAIL HEADER ===== */
+  .vehicle-detail-header {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .vehicle-detail-icon { font-size: 52px; }
+  .vehicle-detail-info { flex: 1; min-width: 0; }
+  .vehicle-detail-name {
+    font-family: var(--font-head);
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .vehicle-detail-meta { color: var(--text-muted); font-size: 14px; margin-top: 4px; }
+  .vehicle-detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* ===== EMPTY STATE ===== */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
+  .empty-icon { font-size: 48px; margin-bottom: 16px; }
+  .empty-title { font-family: var(--font-head); font-size: 18px; color: var(--text-dim); margin-bottom: 8px; }
+
+  /* ===== MOBILE BOTTOM NAV ===== */
+  .mobile-nav {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 8px 0 env(safe-area-inset-bottom, 8px);
+    z-index: 50;
+    justify-content: space-around;
+  }
+
+  .mobile-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 10px;
+    font-family: var(--font-body);
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .mobile-nav-btn .icon { font-size: 20px; }
+  .mobile-nav-btn.active { color: var(--accent); }
+
+  /* ===== MOBILE SIDEBAR TOGGLE ===== */
+  .hamburger {
+    display: none;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 22px;
+    cursor: pointer;
+    padding: 4px;
+  }
+
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 40;
+  }
+  .sidebar-overlay.open { display: block; }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 768px) {
+    .app-shell {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 1fr;
+    }
+
+    .sidebar {
+      position: fixed;
+      left: -260px;
+      top: 0;
+      z-index: 50;
+      height: 100%;
+      transition: left 0.3s ease;
+      width: 240px;
+    }
+    .sidebar.open { left: 0; }
+
+    .topbar { grid-column: 1; }
+    .hamburger { display: block; }
+
+    .main-content { padding: 16px; padding-bottom: 80px; }
+    .mobile-nav { display: flex; }
+
+    .form-row { grid-template-columns: 1fr; }
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+    .vehicles-grid { grid-template-columns: 1fr; }
+    .vehicle-detail-actions .btn span { display: none; }
+    .data-table .hide-mobile { display: none; }
+  }
+
+  @media (min-width: 769px) and (max-width: 1100px) {
+    .app-shell { grid-template-columns: 200px 1fr; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ===== SECTION HEADER ===== */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .section-title {
+    font-family: var(--font-head);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-dim);
+  }
+  .section-title span { color: var(--text); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="logo">Auto<span>Suivi</span></div>
+
+    <p class="nav-section-title">Navigation</p>
+    <button class="nav-btn active" onclick="showView('dashboard')" data-view="dashboard">
+      <span class="icon">🏠</span> Tableau de bord
+    </button>
+    <button class="nav-btn" onclick="showView('vehicles')" data-view="vehicles">
+      <span class="icon">🚗</span> Véhicules
+    </button>
+    <button class="nav-btn" onclick="showView('calendar')" data-view="calendar">
+      <span class="icon">📅</span> Calendrier
+    </button>
+    <button class="nav-btn" onclick="showView('expenses')" data-view="expenses">
+      <span class="icon">💸</span> Dépenses
+    </button>
+
+    <p class="nav-section-title" style="margin-top:auto;">Aide</p>
+    <button class="nav-btn" onclick="showView('settings')" data-view="settings">
+      <span class="icon">⚙️</span> Paramètres
+    </button>
+  </aside>
+
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button class="hamburger" onclick="toggleSidebar()">☰</button>
+      <h1 class="page-title" id="pageTitle">Tableau de bord</h1>
+    </div>
+    <div style="display:flex;gap:8px;" id="topbarActions">
+      <button class="btn btn-primary" onclick="openModal('addVehicleModal')">
+        <span>+</span> <span>Véhicule</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="main-content" id="mainContent">
+
+    <!-- ===== DASHBOARD VIEW ===== -->
+    <div class="view active" id="view-dashboard">
+      <div class="kpi-grid" id="dashKpis"></div>
+
+      <div class="section-header">
+        <p class="section-title">Prochains <span>rappels</span></p>
+        <button class="btn btn-ghost btn-sm" onclick="showView('calendar')">Voir tout</button>
+      </div>
+      <div class="reminders-list" id="dashReminders" style="margin-bottom:28px;"></div>
+
+      <div class="section-header">
+        <p class="section-title">Dépenses récentes</p>
+        <button class="btn btn-ghost btn-sm" onclick="showView('expenses')">Voir tout</button>
+      </div>
+      <div class="table-container" id="dashExpenses"></div>
+    </div>
+
+    <!-- ===== VEHICLES VIEW ===== -->
+    <div class="view" id="view-vehicles">
+      <div class="vehicles-grid" id="vehiclesGrid"></div>
+    </div>
+
+    <!-- ===== VEHICLE DETAIL VIEW ===== -->
+    <div class="view" id="view-vehicleDetail">
+      <button class="back-btn" onclick="showView('vehicles')">← Retour aux véhicules</button>
+      <div class="vehicle-detail-header" id="vehicleDetailHeader"></div>
+
+      <div class="tabs" id="vehicleDetailTabs">
+        <button class="tab-btn active" onclick="switchTab('tabOverview')">📊 Vue d'ensemble</button>
+        <button class="tab-btn" onclick="switchTab('tabExpenses')">💸 Dépenses</button>
+        <button class="tab-btn" onclick="switchTab('tabReminders')">🔔 Rappels</button>
+      </div>
+
+      <div id="tabOverview">
+        <div class="kpi-grid" id="vehicleKpis"></div>
+        <div class="chart-container">
+          <p class="chart-title">Dépenses <span>par mois</span></p>
+          <div class="bar-chart" id="vehicleChart"></div>
+        </div>
+      </div>
+
+      <div id="tabExpenses" style="display:none;">
+        <div class="section-header">
+          <p class="section-title">Historique <span>des dépenses</span></p>
+          <button class="btn btn-primary btn-sm" onclick="openAddExpenseModal()">+ Ajouter</button>
+        </div>
+        <div class="table-container"><table class="data-table" id="vehicleExpensesTable">
+          <thead><tr>
+            <th>Date</th><th>Catégorie</th><th>Description</th>
+            <th class="hide-mobile">Kilométrage</th><th>Montant</th><th></th>
+          </tr></thead>
+          <tbody id="vehicleExpensesBody"></tbody>
+        </table></div>
+      </div>
+
+      <div id="tabReminders" style="display:none;">
+        <div class="section-header">
+          <p class="section-title">Rappels <span>& entretiens</span></p>
+          <button class="btn btn-primary btn-sm" onclick="openAddReminderModal()">+ Ajouter</button>
+        </div>
+        <div class="reminders-list" id="vehicleRemindersList"></div>
+      </div>
+    </div>
+
+    <!-- ===== CALENDAR VIEW ===== -->
+    <div class="view" id="view-calendar">
+      <div class="section-header">
+        <p class="section-title">Tous les <span>rappels</span></p>
+        <button class="btn btn-primary" onclick="openModal('addReminderModal')">+ Rappel</button>
+      </div>
+      <div class="reminders-list" id="allRemindersList"></div>
+    </div>
+
+    <!-- ===== EXPENSES VIEW ===== -->
+    <div class="view" id="view-expenses">
+      <div class="kpi-grid" id="expensesKpis"></div>
+      <div class="chart-container">
+        <p class="chart-title">Dépenses <span>par catégorie</span></p>
+        <div id="expenseCategoryChart" style="display:flex;gap:10px;flex-wrap:wrap;"></div>
+      </div>
+      <div class="section-header">
+        <p class="section-title">Toutes les <span>dépenses</span></p>
+        <button class="btn btn-primary btn-sm" onclick="openAddExpenseModal(null)">+ Dépense</button>
+      </div>
+      <div class="table-container"><table class="data-table">
+        <thead><tr>
+          <th>Date</th><th>Véhicule</th><th>Catégorie</th>
+          <th class="hide-mobile">Description</th><th>Montant</th><th></th>
+        </tr></thead>
+        <tbody id="allExpensesBody"></tbody>
+      </table></div>
+    </div>
+
+    <!-- ===== SETTINGS VIEW ===== -->
+    <div class="view" id="view-settings">
+      <div class="chart-container">
+        <p class="modal-title" style="margin-bottom:16px;">⚙️ Paramètres</p>
+        <div class="form-group">
+          <label class="form-label">Devise</label>
+          <select class="form-select" id="currencySetting" onchange="saveSetting('currency', this.value)">
+            <option value="€">€ Euro</option>
+            <option value="$">$ Dollar</option>
+            <option value="CHF">CHF Franc suisse</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Unité de distance</label>
+          <select class="form-select" id="distanceSetting" onchange="saveSetting('distance', this.value)">
+            <option value="km">Kilomètres (km)</option>
+            <option value="mi">Miles (mi)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Délai d'alerte rappel (jours)</label>
+          <input type="number" class="form-input" id="alertDaySetting" value="30" onchange="saveSetting('alertDays', this.value)">
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-ghost btn-danger" onclick="if(confirm('Supprimer TOUTES les données ?')) { localStorage.clear(); location.reload(); }">
+            🗑 Réinitialiser les données
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="mobile-nav">
+  <button class="mobile-nav-btn active" onclick="showView('dashboard')" data-view="dashboard">
+    <span class="icon">🏠</span>Accueil
+  </button>
+  <button class="mobile-nav-btn" onclick="showView('vehicles')" data-view="vehicles">
+    <span class="icon">🚗</span>Voitures
+  </button>
+  <button class="mobile-nav-btn" onclick="showView('calendar')" data-view="calendar">
+    <span class="icon">📅</span>Rappels
+  </button>
+  <button class="mobile-nav-btn" onclick="showView('expenses')" data-view="expenses">
+    <span class="icon">💸</span>Dépenses
+  </button>
+</nav>
+
+<!-- ===== MODALS ===== -->
+
+<!-- ADD VEHICLE MODAL -->
+<div class="modal-overlay" id="addVehicleModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="vehicleModalTitle">Ajouter un véhicule</h2>
+      <button class="modal-close" onclick="closeModal('addVehicleModal')">×</button>
+    </div>
+    <input type="hidden" id="editVehicleId">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Marque *</label>
+        <input type="text" class="form-input" id="vMake" placeholder="Ex: Renault">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Modèle *</label>
+        <input type="text" class="form-input" id="vModel" placeholder="Ex: Clio">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Année</label>
+        <input type="number" class="form-input" id="vYear" placeholder="2020">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Immatriculation</label>
+        <input type="text" class="form-input" id="vPlate" placeholder="AB-123-CD">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Kilométrage actuel</label>
+        <input type="number" class="form-input" id="vKm" placeholder="50000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Carburant</label>
+        <select class="form-select" id="vFuel">
+          <option>Essence</option>
+          <option>Diesel</option>
+          <option>Électrique</option>
+          <option>Hybride</option>
+          <option>GPL</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Couleur / Note</label>
+      <input type="text" class="form-input" id="vNote" placeholder="Ex: Gris métallisé">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Icône</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;" id="emojiPicker">
+        <script>
+          ['🚗','🚙','🏎','🚐','🚌','🚑','🚓','🚕','🛻','🚚','🏍','🛵'].forEach(e => {
+            document.write(`<button type="button" onclick="selectEmoji('${e}')" class="emoji-btn" style="font-size:24px;padding:6px;border:2px solid transparent;border-radius:8px;background:var(--surface2);cursor:pointer;" data-emoji="${e}">${e}</button>`);
+          });
+        </script>
+      </div>
+      <input type="hidden" id="vEmoji" value="🚗">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('addVehicleModal')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveVehicle()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD EXPENSE MODAL -->
+<div class="modal-overlay" id="addExpenseModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title">Ajouter une dépense</h2>
+      <button class="modal-close" onclick="closeModal('addExpenseModal')">×</button>
+    </div>
+    <input type="hidden" id="editExpenseId">
+    <div class="form-group">
+      <label class="form-label">Véhicule *</label>
+      <select class="form-select" id="eVehicle"></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Date *</label>
+        <input type="date" class="form-input" id="eDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Montant (€) *</label>
+        <input type="number" class="form-input" id="eAmount" placeholder="0.00" step="0.01">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Catégorie</label>
+        <select class="form-select" id="eCategory">
+          <option value="fuel">⛽ Carburant</option>
+          <option value="maintenance">🔧 Entretien</option>
+          <option value="repair">🛠 Réparation</option>
+          <option value="insurance">🛡 Assurance</option>
+          <option value="control">🔍 Contrôle technique</option>
+          <option value="other">📦 Autre</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Kilométrage</label>
+        <input type="number" class="form-input" id="eKm" placeholder="50000">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <input type="text" class="form-input" id="eDesc" placeholder="Ex: Vidange huile moteur">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="eNotes" placeholder="Informations complémentaires..."></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('addExpenseModal')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveExpense()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD REMINDER MODAL -->
+<div class="modal-overlay" id="addReminderModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="reminderModalTitle">Ajouter un rappel</h2>
+      <button class="modal-close" onclick="closeModal('addReminderModal')">×</button>
+    </div>
+    <input type="hidden" id="editReminderId">
+    <div class="form-group">
+      <label class="form-label">Véhicule *</label>
+      <select class="form-select" id="rVehicle"></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Type d'entretien *</label>
+      <select class="form-select" id="rType">
+        <option value="ct">🔍 Contrôle technique</option>
+        <option value="revision">🔧 Révision</option>
+        <option value="vidange">🛢 Vidange</option>
+        <option value="pneus">🏎 Changement de pneus</option>
+        <option value="courroie">⚙️ Courroie de distribution</option>
+        <option value="freins">🛑 Freins</option>
+        <option value="assurance">🛡 Renouvellement assurance</option>
+        <option value="vignette">📄 Vignette / Vignette pollution</option>
+        <option value="other">📌 Autre</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Date limite *</label>
+        <input type="date" class="form-input" id="rDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Kilométrage limite</label>
+        <input type="number" class="form-input" id="rKm" placeholder="60000">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Note</label>
+      <input type="text" class="form-input" id="rNote" placeholder="Ex: Garage Dupont recommandé">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('addReminderModal')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveReminder()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =====================
+//  STATE & STORAGE
+// =====================
+const DB = {
+  get: (k) => JSON.parse(localStorage.getItem(k) || 'null'),
+  set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
+};
+
+function getVehicles() { return DB.get('vehicles') || []; }
+function getExpenses() { return DB.get('expenses') || []; }
+function getReminders() { return DB.get('reminders') || []; }
+function getSettings() { return DB.get('settings') || { currency: '€', distance: 'km', alertDays: 30 }; }
+
+function saveVehicles(d) { DB.set('vehicles', d); }
+function saveExpenses(d) { DB.set('expenses', d); }
+function saveReminders(d) { DB.set('reminders', d); }
+
+let currentVehicleId = null;
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+const SETTINGS = getSettings();
+
+// =====================
+//  INIT DEMO DATA
+// =====================
+function initDemoData() {
+  if (getVehicles().length > 0) return;
+  const v1 = uid(), v2 = uid();
+  saveVehicles([
+    { id: v1, make: 'Renault', model: 'Clio', year: 2019, plate: 'AB-123-CD', km: 62000, fuel: 'Essence', note: 'Gris métallisé', emoji: '🚗' },
+    { id: v2, make: 'Peugeot', model: '308', year: 2021, plate: 'EF-456-GH', km: 38000, fuel: 'Diesel', note: 'Bleu nuit', emoji: '🚙' },
+  ]);
+  const now = new Date();
+  const month = (offset) => {
+    const d = new Date(now.getFullYear(), now.getMonth() + offset, 15);
+    return d.toISOString().slice(0,10);
+  };
+  saveExpenses([
+    { id: uid(), vehicleId: v1, date: month(-5), amount: 68.50, category: 'fuel', desc: 'Plein d\'essence', km: 58000, notes: '' },
+    { id: uid(), vehicleId: v1, date: month(-4), amount: 180.00, category: 'maintenance', desc: 'Vidange + filtres', km: 59000, notes: 'Garage Martin' },
+    { id: uid(), vehicleId: v1, date: month(-3), amount: 72.30, category: 'fuel', desc: 'Plein d\'essence', km: 59800, notes: '' },
+    { id: uid(), vehicleId: v1, date: month(-3), amount: 650.00, category: 'repair', desc: 'Remplacement freins avant', km: 60000, notes: '' },
+    { id: uid(), vehicleId: v1, date: month(-2), amount: 650.00, category: 'insurance', desc: 'Assurance annuelle', km: 60500, notes: '' },
+    { id: uid(), vehicleId: v1, date: month(-1), amount: 68.00, category: 'fuel', desc: 'Plein d\'essence', km: 61500, notes: '' },
+    { id: uid(), vehicleId: v2, date: month(-4), amount: 75.00, category: 'fuel', desc: 'Plein diesel', km: 35000, notes: '' },
+    { id: uid(), vehicleId: v2, date: month(-2), amount: 210.00, category: 'maintenance', desc: 'Révision 40 000 km', km: 37000, notes: '' },
+    { id: uid(), vehicleId: v2, date: month(-1), amount: 78.50, category: 'fuel', desc: 'Plein diesel', km: 37800, notes: '' },
+  ]);
+  const future = (days) => {
+    const d = new Date(); d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0,10);
+  };
+  saveReminders([
+    { id: uid(), vehicleId: v1, type: 'ct', date: future(45), km: 70000, note: 'Centre de contrôle du quartier', done: false },
+    { id: uid(), vehicleId: v1, type: 'vidange', date: future(-10), km: 65000, note: 'Huile 5W40', done: false },
+    { id: uid(), vehicleId: v2, type: 'revision', date: future(120), km: 50000, note: 'Révision 50 000 km', done: false },
+    { id: uid(), vehicleId: v2, type: 'assurance', date: future(20), km: null, note: 'Renouvellement en cours', done: false },
+  ]);
+}
+
+// =====================
+//  SETTINGS
+// =====================
+function saveSetting(key, value) {
+  const s = getSettings();
+  s[key] = value;
+  DB.set('settings', s);
+}
+
+function loadSettings() {
+  const s = getSettings();
+  document.getElementById('currencySetting').value = s.currency || '€';
+  document.getElementById('distanceSetting').value = s.distance || 'km';
+  document.getElementById('alertDaySetting').value = s.alertDays || 30;
+}
+
+function fmt(amount) {
+  const s = getSettings();
+  return amount.toFixed(2) + ' ' + (s.currency || '€');
+}
+function fmtKm(km) {
+  const s = getSettings();
+  return km ? km.toLocaleString() + ' ' + (s.distance || 'km') : '—';
+}
+
+// =====================
+//  NAVIGATION
+// =====================
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('.nav-btn, .mobile-nav-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === name);
+  });
+  const titles = { dashboard: 'Tableau de bord', vehicles: 'Véhicules', calendar: 'Calendrier', expenses: 'Dépenses', settings: 'Paramètres', vehicleDetail: 'Détail véhicule' };
+  document.getElementById('pageTitle').textContent = titles[name] || '';
+  closeSidebar();
+  renderView(name);
+}
+
+function renderView(name) {
+  if (name === 'dashboard') renderDashboard();
+  else if (name === 'vehicles') renderVehicles();
+  else if (name === 'calendar') renderCalendar();
+  else if (name === 'expenses') renderExpenses();
+  else if (name === 'vehicleDetail') renderVehicleDetail(currentVehicleId);
+  else if (name === 'settings') loadSettings();
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
+// =====================
+//  TABS (vehicle detail)
+// =====================
+function switchTab(tabId) {
+  ['tabOverview','tabExpenses','tabReminders'].forEach(t => {
+    document.getElementById(t).style.display = t === tabId ? '' : 'none';
+  });
+  document.querySelectorAll('#vehicleDetailTabs .tab-btn').forEach((b, i) => {
+    const tabs = ['tabOverview','tabExpenses','tabReminders'];
+    b.classList.toggle('active', tabs[i] === tabId);
+  });
+  if (tabId === 'tabExpenses') renderVehicleExpenses(currentVehicleId);
+  if (tabId === 'tabReminders') renderVehicleReminders(currentVehicleId);
+}
+
+// =====================
+//  MODAL
+// =====================
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+});
+
+// =====================
+//  EMOJI PICKER
+// =====================
+function selectEmoji(e) {
+  document.getElementById('vEmoji').value = e;
+  document.querySelectorAll('.emoji-btn').forEach(b => {
+    b.style.borderColor = b.dataset.emoji === e ? 'var(--accent)' : 'transparent';
+  });
+}
+selectEmoji('🚗');
+
+// =====================
+//  VEHICLES
+// =====================
+function saveVehicle() {
+  const make = document.getElementById('vMake').value.trim();
+  const model = document.getElementById('vModel').value.trim();
+  if (!make || !model) { alert('Marque et modèle obligatoires'); return; }
+  const editId = document.getElementById('editVehicleId').value;
+  const vehicles = getVehicles();
+  const v = {
+    id: editId || uid(),
+    make, model,
+    year: +document.getElementById('vYear').value || null,
+    plate: document.getElementById('vPlate').value.trim(),
+    km: +document.getElementById('vKm').value || 0,
+    fuel: document.getElementById('vFuel').value,
+    note: document.getElementById('vNote').value.trim(),
+    emoji: document.getElementById('vEmoji').value,
+  };
+  if (editId) {
+    const idx = vehicles.findIndex(x => x.id === editId);
+    if (idx > -1) vehicles[idx] = v;
+  } else {
+    vehicles.push(v);
+  }
+  saveVehicles(vehicles);
+  closeModal('addVehicleModal');
+  clearVehicleForm();
+  renderVehicles();
+}
+
+function clearVehicleForm() {
+  ['vMake','vModel','vYear','vPlate','vKm','vNote','editVehicleId'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('vFuel').value = 'Essence';
+  selectEmoji('🚗');
+  document.getElementById('vehicleModalTitle').textContent = 'Ajouter un véhicule';
+}
+
+function editVehicle(id) {
+  const v = getVehicles().find(x => x.id === id);
+  if (!v) return;
+  document.getElementById('editVehicleId').value = v.id;
+  document.getElementById('vMake').value = v.make;
+  document.getElementById('vModel').value = v.model;
+  document.getElementById('vYear').value = v.year || '';
+  document.getElementById('vPlate').value = v.plate || '';
+  document.getElementById('vKm').value = v.km || '';
+  document.getElementById('vFuel').value = v.fuel || 'Essence';
+  document.getElementById('vNote').value = v.note || '';
+  selectEmoji(v.emoji || '🚗');
+  document.getElementById('vehicleModalTitle').textContent = 'Modifier le véhicule';
+  openModal('addVehicleModal');
+}
+
+function deleteVehicle(id) {
+  if (!confirm('Supprimer ce véhicule et toutes ses données ?')) return;
+  saveVehicles(getVehicles().filter(x => x.id !== id));
+  saveExpenses(getExpenses().filter(x => x.vehicleId !== id));
+  saveReminders(getReminders().filter(x => x.vehicleId !== id));
+  showView('vehicles');
+}
+
+function openVehicle(id) {
+  currentVehicleId = id;
+  showView('vehicleDetail');
+}
+
+// =====================
+//  EXPENSES
+// =====================
+function openAddExpenseModal(vehicleId) {
+  document.getElementById('editExpenseId').value = '';
+  document.getElementById('eDate').value = new Date().toISOString().slice(0,10);
+  document.getElementById('eAmount').value = '';
+  document.getElementById('eDesc').value = '';
+  document.getElementById('eKm').value = '';
+  document.getElementById('eNotes').value = '';
+  document.getElementById('eCategory').value = 'fuel';
+  populateVehicleSelect('eVehicle', vehicleId || currentVehicleId);
+  openModal('addExpenseModal');
+}
+
+function saveExpense() {
+  const vehicleId = document.getElementById('eVehicle').value;
+  const date = document.getElementById('eDate').value;
+  const amount = parseFloat(document.getElementById('eAmount').value);
+  if (!vehicleId || !date || isNaN(amount)) { alert('Véhicule, date et montant obligatoires'); return; }
+  const editId = document.getElementById('editExpenseId').value;
+  const expenses = getExpenses();
+  const e = {
+    id: editId || uid(),
+    vehicleId, date, amount,
+    category: document.getElementById('eCategory').value,
+    desc: document.getElementById('eDesc').value.trim(),
+    km: +document.getElementById('eKm').value || null,
+    notes: document.getElementById('eNotes').value.trim(),
+  };
+  if (editId) {
+    const idx = expenses.findIndex(x => x.id === editId);
+    if (idx > -1) expenses[idx] = e;
+  } else {
+    expenses.push(e);
+  }
+  saveExpenses(expenses);
+  closeModal('addExpenseModal');
+  renderView(document.querySelector('.view.active').id.replace('view-',''));
+}
+
+function deleteExpense(id) {
+  if (!confirm('Supprimer cette dépense ?')) return;
+  saveExpenses(getExpenses().filter(x => x.id !== id));
+  renderView(document.querySelector('.view.active').id.replace('view-',''));
+}
+
+// =====================
+//  REMINDERS
+// =====================
+function openAddReminderModal(vehicleId) {
+  document.getElementById('editReminderId').value = '';
+  const d = new Date(); d.setMonth(d.getMonth() + 6);
+  document.getElementById('rDate').value = d.toISOString().slice(0,10);
+  document.getElementById('rKm').value = '';
+  document.getElementById('rNote').value = '';
+  document.getElementById('rType').value = 'ct';
+  document.getElementById('reminderModalTitle').textContent = 'Ajouter un rappel';
+  populateVehicleSelect('rVehicle', vehicleId || currentVehicleId);
+  openModal('addReminderModal');
+}
+
+function saveReminder() {
+  const vehicleId = document.getElementById('rVehicle').value;
+  const date = document.getElementById('rDate').value;
+  if (!vehicleId || !date) { alert('Véhicule et date obligatoires'); return; }
+  const editId = document.getElementById('editReminderId').value;
+  const reminders = getReminders();
+  const r = {
+    id: editId || uid(),
+    vehicleId, date,
+    type: document.getElementById('rType').value,
+    km: +document.getElementById('rKm').value || null,
+    note: document.getElementById('rNote').value.trim(),
+    done: false,
+  };
+  if (editId) {
+    const idx = reminders.findIndex(x => x.id === editId);
+    if (idx > -1) reminders[idx] = r;
+  } else {
+    reminders.push(r);
+  }
+  saveReminders(reminders);
+  closeModal('addReminderModal');
+  renderView(document.querySelector('.view.active').id.replace('view-',''));
+}
+
+function toggleReminderDone(id) {
+  const reminders = getReminders();
+  const r = reminders.find(x => x.id === id);
+  if (r) { r.done = !r.done; saveReminders(reminders); }
+  renderView(document.querySelector('.view.active').id.replace('view-',''));
+}
+
+function deleteReminder(id) {
+  if (!confirm('Supprimer ce rappel ?')) return;
+  saveReminders(getReminders().filter(x => x.id !== id));
+  renderView(document.querySelector('.view.active').id.replace('view-',''));
+}
+
+function populateVehicleSelect(selectId, preferVehicleId) {
+  const vehicles = getVehicles();
+  const sel = document.getElementById(selectId);
+  sel.innerHTML = vehicles.map(v => `<option value="${v.id}" ${v.id === preferVehicleId ? 'selected' : ''}>${v.emoji} ${v.make} ${v.model} (${v.plate || v.year || ''})</option>`).join('');
+  if (!sel.innerHTML) sel.innerHTML = '<option value="">— Aucun véhicule —</option>';
+}
+
+// =====================
+//  RENDER HELPERS
+// =====================
+const CAT_LABELS = { fuel:'⛽ Carburant', maintenance:'🔧 Entretien', repair:'🛠 Réparation', insurance:'🛡 Assurance', control:'🔍 Contrôle', other:'📦 Autre' };
+const REMIND_LABELS = { ct:'🔍 Contrôle technique', revision:'🔧 Révision', vidange:'🛢 Vidange', pneus:'🏎 Pneus', courroie:'⚙️ Courroie', freins:'🛑 Freins', assurance:'🛡 Assurance', vignette:'📄 Vignette', other:'📌 Autre' };
+
+function catBadge(cat) {
+  const labels = { fuel:'Carburant', maintenance:'Entretien', repair:'Réparation', insurance:'Assurance', control:'Contrôle', other:'Autre' };
+  return `<span class="badge badge-${cat}">${labels[cat] || cat}</span>`;
+}
+
+function daysUntil(dateStr) {
+  const t = new Date(dateStr); t.setHours(0,0,0,0);
+  const n = new Date(); n.setHours(0,0,0,0);
+  return Math.round((t - n) / 86400000);
+}
+
+function reminderStatusClass(days) {
+  if (days < 0) return 'overdue';
+  const s = getSettings();
+  return days <= (s.alertDays || 30) ? 'soon' : 'ok';
+}
+
+function renderReminderItem(r, vehicles) {
+  const v = vehicles.find(x => x.id === r.vehicleId) || {};
+  const days = daysUntil(r.date);
+  const sc = reminderStatusClass(days);
+  const daysLabel = days < 0 ? `${Math.abs(days)}j de retard` : days === 0 ? "Aujourd'hui" : `Dans ${days}j`;
+  const icons = { overdue:'⚠️', soon:'🔔', ok:'✅' };
+  return `
+    <div class="reminder-item" style="${r.done ? 'opacity:0.5;' : ''}">
+      <div class="reminder-icon ${r.done ? 'ok' : sc}">${icons[r.done ? 'ok' : sc]}</div>
+      <div class="reminder-body">
+        <div class="reminder-title">${REMIND_LABELS[r.type] || r.type} — ${v.emoji || '🚗'} ${v.make || ''} ${v.model || ''}</div>
+        <div class="reminder-meta">
+          ${new Date(r.date).toLocaleDateString('fr-FR')}
+          ${r.km ? '· ' + fmtKm(r.km) : ''}
+          ${r.note ? '· ' + r.note : ''}
+        </div>
+      </div>
+      <span class="days-badge ${r.done ? 'ok' : sc}">${r.done ? 'Fait' : daysLabel}</span>
+      <div style="display:flex;gap:6px;margin-left:8px;">
+        <button class="btn btn-ghost btn-sm" onclick="toggleReminderDone('${r.id}')" title="${r.done ? 'Marquer non fait' : 'Marquer fait'}">${r.done ? '↩' : '✓'}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteReminder('${r.id}')" title="Supprimer">✕</button>
+      </div>
+    </div>`;
+}
+
+// =====================
+//  RENDER DASHBOARD
+// =====================
+function renderDashboard() {
+  const vehicles = getVehicles();
+  const expenses = getExpenses();
+  const reminders = getReminders();
+  const s = getSettings();
+
+  const total = expenses.reduce((s,e) => s + e.amount, 0);
+  const thisMonth = expenses.filter(e => e.date.slice(0,7) === new Date().toISOString().slice(0,7)).reduce((s,e) => s + e.amount, 0);
+  const overdue = reminders.filter(r => !r.done && daysUntil(r.date) < 0).length;
+  const soon = reminders.filter(r => !r.done && daysUntil(r.date) >= 0 && daysUntil(r.date) <= (s.alertDays||30)).length;
+
+  document.getElementById('dashKpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Véhicules</div><div class="kpi-value kpi-accent">${vehicles.length}</div><div class="kpi-sub">enregistrés</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total dépenses</div><div class="kpi-value">${fmt(total)}</div><div class="kpi-sub">tous véhicules</div></div>
+    <div class="kpi-card"><div class="kpi-label">Ce mois</div><div class="kpi-value kpi-success">${fmt(thisMonth)}</div><div class="kpi-sub">dépenses du mois</div></div>
+    <div class="kpi-card"><div class="kpi-label">Rappels urgents</div><div class="kpi-value ${overdue > 0 ? 'kpi-danger' : 'kpi-success'}">${overdue + soon}</div><div class="kpi-sub">${overdue} en retard</div></div>
+  `;
+
+  const upcoming = reminders.filter(r => !r.done).sort((a,b) => new Date(a.date)-new Date(b.date)).slice(0,4);
+  document.getElementById('dashReminders').innerHTML = upcoming.length
+    ? upcoming.map(r => renderReminderItem(r, vehicles)).join('')
+    : '<div class="empty-state"><div class="empty-icon">🎉</div><div class="empty-title">Aucun rappel à venir</div></div>';
+
+  const recent = [...expenses].sort((a,b) => new Date(b.date)-new Date(a.date)).slice(0,5);
+  document.getElementById('dashExpenses').innerHTML = `
+    <table class="data-table">
+      <thead><tr><th>Date</th><th>Véhicule</th><th>Catégorie</th><th class="hide-mobile">Description</th><th>Montant</th></tr></thead>
+      <tbody>${recent.map(e => {
+        const v = vehicles.find(x => x.id === e.vehicleId) || {};
+        return `<tr>
+          <td>${new Date(e.date).toLocaleDateString('fr-FR')}</td>
+          <td>${v.emoji||'🚗'} ${v.make||''} ${v.model||''}</td>
+          <td>${catBadge(e.category)}</td>
+          <td class="hide-mobile">${e.desc||'—'}</td>
+          <td class="amount-cell">${fmt(e.amount)}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+}
+
+// =====================
+//  RENDER VEHICLES
+// =====================
+function renderVehicles() {
+  const vehicles = getVehicles();
+  const expenses = getExpenses();
+  const reminders = getReminders();
+  const s = getSettings();
+
+  let html = vehicles.map(v => {
+    const vExp = expenses.filter(e => e.vehicleId === v.id);
+    const total = vExp.reduce((s,e) => s + e.amount, 0);
+    const hasAlert = reminders.some(r => r.vehicleId === v.id && !r.done && daysUntil(r.date) <= (s.alertDays||30));
+    return `
+      <div class="vehicle-card" onclick="openVehicle('${v.id}')">
+        ${hasAlert ? '<div class="alert-dot"></div>' : ''}
+        <span class="vehicle-icon">${v.emoji}</span>
+        <div class="vehicle-name">${v.make} ${v.model}</div>
+        <div class="vehicle-meta">${v.year||''} ${v.plate ? '· '+v.plate : ''} · ${v.fuel}</div>
+        <div class="vehicle-stats">
+          <div class="stat-chip"><div class="label">Kilométrage</div><div class="value">${fmtKm(v.km)}</div></div>
+          <div class="stat-chip"><div class="label">Total dépenses</div><div class="value">${fmt(total)}</div></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  html += `<div class="add-vehicle-card" onclick="clearVehicleForm();openModal('addVehicleModal')">
+    <span class="plus">+</span>
+    <span style="font-weight:600;font-size:14px;">Ajouter un véhicule</span>
+  </div>`;
+
+  document.getElementById('vehiclesGrid').innerHTML = html;
+}
+
+// =====================
+//  RENDER VEHICLE DETAIL
+// =====================
+function renderVehicleDetail(id) {
+  const v = getVehicles().find(x => x.id === id);
+  if (!v) return showView('vehicles');
+  const expenses = getExpenses().filter(e => e.vehicleId === id);
+  const total = expenses.reduce((s,e) => s + e.amount, 0);
+  const reminders = getReminders().filter(r => r.vehicleId === id && !r.done);
+
+  document.getElementById('vehicleDetailHeader').innerHTML = `
+    <div class="vehicle-detail-icon">${v.emoji}</div>
+    <div class="vehicle-detail-info">
+      <div class="vehicle-detail-name">${v.make} ${v.model}</div>
+      <div class="vehicle-detail-meta">${v.year||''} ${v.plate ? '· '+v.plate : ''} · ${v.fuel} ${v.note ? '· '+v.note : ''}</div>
+    </div>
+    <div class="vehicle-detail-actions">
+      <button class="btn btn-ghost btn-sm" onclick="editVehicle('${v.id}')">✏️ <span>Modifier</span></button>
+      <button class="btn btn-primary btn-sm" onclick="openAddExpenseModal('${v.id}')">+ <span>Dépense</span></button>
+      <button class="btn btn-ghost btn-sm" onclick="openAddReminderModal('${v.id}')">🔔 <span>Rappel</span></button>
+      <button class="btn btn-danger btn-sm" onclick="deleteVehicle('${v.id}')">🗑</button>
+    </div>`;
+
+  const thisYear = expenses.filter(e => e.date.startsWith(new Date().getFullYear())).reduce((s,e) => s+e.amount, 0);
+  document.getElementById('vehicleKpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Total dépenses</div><div class="kpi-value">${fmt(total)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Cette année</div><div class="kpi-value kpi-success">${fmt(thisYear)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Kilométrage</div><div class="kpi-value kpi-accent">${fmtKm(v.km)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Rappels actifs</div><div class="kpi-value ${reminders.length > 0 ? 'kpi-danger' : 'kpi-success'}">${reminders.length}</div></div>
+  `;
+
+  renderBarChart(id);
+  switchTab('tabOverview');
+}
+
+function renderBarChart(vehicleId) {
+  const expenses = getExpenses().filter(e => e.vehicleId === vehicleId);
+  const months = {};
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months[d.toISOString().slice(0,7)] = 0;
+  }
+  expenses.forEach(e => {
+    const m = e.date.slice(0,7);
+    if (m in months) months[m] += e.amount;
+  });
+  const values = Object.values(months);
+  const maxVal = Math.max(...values, 1);
+  const monthNames = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  const colors = ['#3a9eff','#e8c547','#4dce8a','#ff9f43','#ff5c5c','#a78bfa'];
+  const bars = Object.entries(months).map(([m, v], i) => {
+    const h = Math.max((v / maxVal) * 130, v > 0 ? 8 : 4);
+    const label = monthNames[+m.slice(5,7)-1];
+    return `<div class="bar-group">
+      <div class="bar-amount">${v > 0 ? fmt(v).replace('.00','') : ''}</div>
+      <div class="bar" style="height:${h}px;background:${colors[i%colors.length]};" title="${fmt(v)}"></div>
+      <div class="bar-label">${label}</div>
+    </div>`;
+  });
+  document.getElementById('vehicleChart').innerHTML = bars.join('');
+}
+
+function renderVehicleExpenses(id) {
+  const expenses = getExpenses().filter(e => e.vehicleId === id).sort((a,b) => new Date(b.date)-new Date(a.date));
+  document.getElementById('vehicleExpensesBody').innerHTML = expenses.length
+    ? expenses.map(e => `<tr>
+        <td>${new Date(e.date).toLocaleDateString('fr-FR')}</td>
+        <td>${catBadge(e.category)}</td>
+        <td>${e.desc||'—'}</td>
+        <td class="hide-mobile">${e.km ? fmtKm(e.km) : '—'}</td>
+        <td class="amount-cell">${fmt(e.amount)}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteExpense('${e.id}')">✕</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted);">Aucune dépense</td></tr>';
+}
+
+function renderVehicleReminders(id) {
+  const reminders = getReminders().filter(r => r.vehicleId === id).sort((a,b) => new Date(a.date)-new Date(b.date));
+  const vehicles = getVehicles();
+  document.getElementById('vehicleRemindersList').innerHTML = reminders.length
+    ? reminders.map(r => renderReminderItem(r, vehicles)).join('')
+    : '<div class="empty-state"><div class="empty-icon">🎉</div><div class="empty-title">Aucun rappel</div></div>';
+}
+
+// =====================
+//  RENDER CALENDAR
+// =====================
+function renderCalendar() {
+  const reminders = getReminders().sort((a,b) => new Date(a.date)-new Date(b.date));
+  const vehicles = getVehicles();
+  document.getElementById('allRemindersList').innerHTML = reminders.length
+    ? reminders.map(r => renderReminderItem(r, vehicles)).join('')
+    : '<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-title">Aucun rappel planifié</div><p>Ajoutez des rappels pour vos entretiens, contrôles techniques...</p></div>';
+}
+
+// =====================
+//  RENDER EXPENSES
+// =====================
+function renderExpenses() {
+  const expenses = getExpenses().sort((a,b) => new Date(b.date)-new Date(a.date));
+  const vehicles = getVehicles();
+  const total = expenses.reduce((s,e) => s + e.amount, 0);
+  const thisMonth = expenses.filter(e => e.date.slice(0,7) === new Date().toISOString().slice(0,7)).reduce((s,e) => s + e.amount, 0);
+  const avgMonth = total / Math.max(1, getMonthRange(expenses));
+
+  document.getElementById('expensesKpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Total</div><div class="kpi-value">${fmt(total)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Ce mois</div><div class="kpi-value kpi-accent">${fmt(thisMonth)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Moy. mensuelle</div><div class="kpi-value kpi-success">${fmt(avgMonth)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Nb. opérations</div><div class="kpi-value">${expenses.length}</div></div>
+  `;
+
+  // Category pie bars
+  const cats = {};
+  expenses.forEach(e => { cats[e.category] = (cats[e.category]||0) + e.amount; });
+  const catColors = { fuel:'var(--accent2)', maintenance:'var(--accent)', repair:'var(--danger)', insurance:'var(--success)', control:'var(--warn)', other:'var(--text-muted)' };
+  const catHtml = Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([cat, amt]) => `
+    <div style="flex:1;min-width:130px;background:var(--surface2);border-radius:10px;padding:12px;">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">${CAT_LABELS[cat]||cat}</div>
+      <div style="font-size:18px;font-weight:700;color:${catColors[cat]||'var(--text)'};">${fmt(amt)}</div>
+      <div style="height:4px;background:var(--border);border-radius:2px;margin-top:8px;">
+        <div style="height:4px;background:${catColors[cat]||'var(--accent)'};border-radius:2px;width:${Math.round(amt/total*100)}%;"></div>
+      </div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">${Math.round(amt/total*100)}%</div>
+    </div>`).join('');
+  document.getElementById('expenseCategoryChart').innerHTML = catHtml;
+
+  document.getElementById('allExpensesBody').innerHTML = expenses.length
+    ? expenses.map(e => {
+        const v = vehicles.find(x => x.id === e.vehicleId) || {};
+        return `<tr>
+          <td>${new Date(e.date).toLocaleDateString('fr-FR')}</td>
+          <td>${v.emoji||'🚗'} ${v.make||''} ${v.model||''}</td>
+          <td>${catBadge(e.category)}</td>
+          <td class="hide-mobile">${e.desc||'—'}</td>
+          <td class="amount-cell">${fmt(e.amount)}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="deleteExpense('${e.id}')">✕</button></td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted);">Aucune dépense</td></tr>';
+}
+
+function getMonthRange(expenses) {
+  if (!expenses.length) return 1;
+  const dates = expenses.map(e => new Date(e.date));
+  const min = new Date(Math.min(...dates)), max = new Date(Math.max(...dates));
+  return Math.max(1, (max.getFullYear()-min.getFullYear())*12 + max.getMonth()-min.getMonth() + 1);
+}
+
+// =====================
+//  INIT
+// =====================
+initDemoData();
+renderDashboard();
+</script>
+</body>
+</html>
