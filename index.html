@@ -646,18 +646,9 @@
     </div>
     <input type="hidden" id="editReminderId">
     <div class="form-group"><label class="form-label">Véhicule *</label><select class="form-select" id="rVehicle"></select></div>
-    <div class="form-group"><label class="form-label">Type *</label>
-      <select class="form-select" id="rType">
-        <option value="ct">🔍 Contrôle technique</option>
-        <option value="revision">🔧 Révision</option>
-        <option value="vidange">🛢 Vidange</option>
-        <option value="pneus">🏎 Changement de pneus</option>
-        <option value="courroie">⚙️ Courroie de distribution</option>
-        <option value="freins">🛑 Freins</option>
-        <option value="assurance">🛡 Renouvellement assurance</option>
-        <option value="vignette">📄 Vignette</option>
-        <option value="other">📌 Autre</option>
-      </select>
+    <div class="form-group">
+      <label class="form-label">Type(s) d'entretien *</label>
+      <div id="rTypeGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-top:6px;"></div>
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Date limite *</label><input type="date" class="form-input" id="rDate"></div>
@@ -1021,32 +1012,86 @@ window.deleteExpense = async function(id) {
 // =====================
 //  REMINDERS
 // =====================
+const REMIND_TYPES = [
+  { value:'ct',        label:'Contrôle technique', icon:'🔍' },
+  { value:'revision',  label:'Révision',            icon:'🔧' },
+  { value:'vidange',   label:'Vidange',              icon:'🛢' },
+  { value:'pneus',     label:'Pneus',                icon:'🏎' },
+  { value:'courroie',  label:'Courroie',             icon:'⚙️' },
+  { value:'freins',    label:'Freins',               icon:'🛑' },
+  { value:'assurance', label:'Assurance',            icon:'🛡' },
+  { value:'vignette',  label:'Vignette',             icon:'📄' },
+  { value:'other',     label:'Autre',                icon:'📌' },
+];
+
+function buildTypeGrid(selectedTypes = []) {
+  const grid = document.getElementById('rTypeGrid');
+  grid.innerHTML = REMIND_TYPES.map(t => {
+    const checked = selectedTypes.includes(t.value);
+    return `<label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:2px solid ${checked ? 'var(--accent)' : 'var(--border)'};border-radius:10px;cursor:pointer;background:${checked ? 'rgba(37,99,235,0.07)' : 'var(--surface2)'};transition:all 0.15s;font-size:13px;font-weight:500;" class="type-chip">
+      <input type="checkbox" value="${t.value}" ${checked ? 'checked' : ''} style="display:none;" onchange="updateTypeChip(this)">
+      <span>${t.icon}</span><span>${t.label}</span>
+    </label>`;
+  }).join('');
+}
+
+window.updateTypeChip = function(cb) {
+  const lbl = cb.closest('label');
+  if (cb.checked) {
+    lbl.style.borderColor = 'var(--accent)';
+    lbl.style.background = 'rgba(37,99,235,0.07)';
+  } else {
+    lbl.style.borderColor = 'var(--border)';
+    lbl.style.background = 'var(--surface2)';
+  }
+};
+
+function getSelectedTypes() {
+  return [...document.querySelectorAll('#rTypeGrid input[type=checkbox]:checked')].map(c => c.value);
+}
+
 window.openAddReminderModal = function() {
   document.getElementById('editReminderId').value = '';
   const d = new Date(); d.setMonth(d.getMonth() + 6);
   document.getElementById('rDate').value = d.toISOString().slice(0,10);
   document.getElementById('rKm').value = '';
   document.getElementById('rNote').value = '';
-  document.getElementById('rType').value = 'ct';
   document.getElementById('reminderModalTitle').textContent = 'Ajouter un rappel';
   populateVehicleSelect('rVehicle', currentVehicleId);
+  buildTypeGrid([]);
+  openModal('addReminderModal');
+};
+
+window.editReminder = function(id) {
+  const r = reminders.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('editReminderId').value = r.id;
+  document.getElementById('rDate').value = r.date;
+  document.getElementById('rKm').value = r.km || '';
+  document.getElementById('rNote').value = r.note || '';
+  document.getElementById('reminderModalTitle').textContent = 'Modifier le rappel';
+  populateVehicleSelect('rVehicle', r.vehicleId);
+  const types = Array.isArray(r.types) ? r.types : (r.type ? [r.type] : []);
+  buildTypeGrid(types);
   openModal('addReminderModal');
 };
 
 window.saveReminder = async function() {
   const vehicleId = document.getElementById('rVehicle').value;
   const date = document.getElementById('rDate').value;
+  const types = getSelectedTypes();
   if (!vehicleId || !date) { toast('Véhicule et date obligatoires', 'error'); return; }
+  if (!types.length) { toast('Sélectionne au moins un type', 'error'); return; }
   const btn = document.getElementById('saveReminderBtn');
   btn.disabled = true;
   setSyncStatus('syncing');
   const editId = document.getElementById('editReminderId').value;
+  const existing = editId ? reminders.find(x => x.id === editId) : null;
   const data = {
-    vehicleId, date,
-    type: document.getElementById('rType').value,
+    vehicleId, date, types,
     km: +document.getElementById('rKm').value || null,
     note: document.getElementById('rNote').value.trim(),
-    done: false,
+    done: existing ? existing.done : false,
     updatedAt: serverTimestamp(),
   };
   try {
@@ -1096,6 +1141,14 @@ function populateVehicleSelect(selectId, preferVehicleId) {
   ).join('');
 }
 
+function getTypeLabels(r) {
+  const types = Array.isArray(r.types) ? r.types : (r.type ? [r.type] : []);
+  return types.map(t => {
+    const found = REMIND_TYPES.find(x => x.value === t);
+    return found ? found.icon + ' ' + found.label : t;
+  }).join(', ');
+}
+
 function renderReminderItem(r) {
   const v = vehicles.find(x => x.id === r.vehicleId) || {};
   const days = daysUntil(r.date);
@@ -1106,7 +1159,7 @@ function renderReminderItem(r) {
     <div class="reminder-item" style="${r.done ? 'opacity:0.55;' : ''}">
       <div class="reminder-icon ${sc}">${icons[sc]}</div>
       <div class="reminder-body">
-        <div class="reminder-title">${REMIND_LABELS[r.type]||r.type} — ${v.emoji||'🚗'} ${v.make||''} ${v.model||''}</div>
+        <div class="reminder-title">${getTypeLabels(r)} — ${v.emoji||'🚗'} ${v.make||''} ${v.model||''}</div>
         <div class="reminder-meta">
           ${new Date(r.date+'T00:00:00').toLocaleDateString('fr-FR')}
           ${r.km ? '· ' + fmtKm(r.km) : ''}
@@ -1115,6 +1168,7 @@ function renderReminderItem(r) {
       </div>
       <span class="days-badge ${r.done ? 'ok' : sc}">${daysLabel}</span>
       <div style="display:flex;gap:6px;margin-left:8px;">
+        <button class="btn btn-ghost btn-sm" onclick="editReminder('${r.id}')" title="Modifier">✏️</button>
         <button class="btn btn-ghost btn-sm" onclick="toggleReminderDone('${r.id}')" title="${r.done?'Réactiver':'Marquer fait'}">${r.done?'↩':'✓'}</button>
         <button class="btn btn-danger btn-sm" onclick="deleteReminder('${r.id}')" title="Supprimer">✕</button>
       </div>
