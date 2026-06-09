@@ -233,6 +233,106 @@
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
 
+  /* ===== INVOICE UPLOAD ===== */
+  .invoice-drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+    background: var(--surface2);
+    position: relative;
+  }
+  .invoice-drop-zone:hover, .invoice-drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(37,99,235,0.04);
+  }
+  .invoice-drop-zone .dz-icon { font-size: 28px; margin-bottom: 8px; display: block; }
+  .invoice-drop-zone .dz-text { font-size: 13px; color: var(--text-muted); }
+  .invoice-drop-zone .dz-text strong { color: var(--accent); }
+  .invoice-drop-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+
+  .invoice-preview {
+    display: none;
+    position: relative;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .invoice-preview.visible { display: block; }
+  .invoice-preview img {
+    width: 100%; max-height: 160px; object-fit: cover;
+    display: block; cursor: pointer;
+  }
+  .invoice-preview-pdf {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px; cursor: pointer;
+  }
+  .invoice-preview-pdf .pdf-icon { font-size: 32px; }
+  .invoice-preview-pdf .pdf-info { flex: 1; min-width: 0; }
+  .invoice-preview-pdf .pdf-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .invoice-preview-pdf .pdf-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .invoice-remove-btn {
+    position: absolute; top: 8px; right: 8px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(0,0,0,0.55); color: #fff;
+    border: none; cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    transition: var(--transition); line-height: 1;
+  }
+  .invoice-remove-btn:hover { background: var(--danger); }
+
+  /* Invoice thumbnail in tables */
+  .invoice-thumb {
+    width: 32px; height: 32px; border-radius: 6px;
+    object-fit: cover; cursor: pointer;
+    border: 1px solid var(--border);
+    transition: var(--transition);
+    vertical-align: middle;
+  }
+  .invoice-thumb:hover { transform: scale(1.1); box-shadow: var(--shadow); }
+  .invoice-pdf-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(37,99,235,0.1); color: var(--accent);
+    border-radius: 6px; padding: 3px 8px; font-size: 11px;
+    font-weight: 600; cursor: pointer; border: none; font-family: var(--font-body);
+    transition: var(--transition);
+  }
+  .invoice-pdf-chip:hover { background: rgba(37,99,235,0.2); }
+
+  /* ===== LIGHTBOX ===== */
+  #lightboxOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.88);
+    backdrop-filter: blur(8px);
+    z-index: 500; display: none;
+    align-items: center; justify-content: center;
+    padding: 20px;
+    flex-direction: column; gap: 16px;
+  }
+  #lightboxOverlay.open { display: flex; }
+  #lightboxImg {
+    max-width: 90vw; max-height: 80vh;
+    border-radius: var(--radius-lg);
+    object-fit: contain;
+    box-shadow: 0 8px 60px rgba(0,0,0,0.5);
+  }
+  .lightbox-close {
+    position: fixed; top: 20px; right: 24px;
+    background: rgba(255,255,255,0.12);
+    border: none; color: #fff; font-size: 26px;
+    cursor: pointer; width: 44px; height: 44px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    transition: var(--transition);
+  }
+  .lightbox-close:hover { background: rgba(255,255,255,0.25); }
+  .lightbox-label {
+    color: rgba(255,255,255,0.6); font-size: 13px;
+  }
+
   /* ===== TABS ===== */
   .tabs {
     display: flex; gap: 4px; background: var(--surface2);
@@ -414,6 +514,13 @@
 
 <div id="toast"></div>
 
+<!-- LIGHTBOX -->
+<div id="lightboxOverlay" onclick="closeLightbox(event)">
+  <button class="lightbox-close" onclick="closeLightbox()">×</button>
+  <img id="lightboxImg" src="" alt="Facture">
+  <div class="lightbox-label" id="lightboxLabel"></div>
+</div>
+
 <div class="app-shell">
   <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
@@ -487,7 +594,7 @@
           <button class="btn btn-primary btn-sm" onclick="openAddExpenseModal()">+ Ajouter</button>
         </div>
         <div class="table-container"><table class="data-table">
-          <thead><tr><th>Date</th><th>Catégorie</th><th>Description</th><th class="hide-mobile">Kilométrage</th><th>Montant</th><th></th></tr></thead>
+          <thead><tr><th>Date</th><th>Catégorie</th><th>Description</th><th class="hide-mobile">Kilométrage</th><th>Montant</th><th>Facture</th><th></th></tr></thead>
           <tbody id="vehicleExpensesBody"></tbody>
         </table></div>
       </div>
@@ -521,7 +628,7 @@
         <button class="btn btn-primary btn-sm" onclick="openAddExpenseModal()">+ Dépense</button>
       </div>
       <div class="table-container"><table class="data-table">
-        <thead><tr><th>Date</th><th>Véhicule</th><th>Catégorie</th><th class="hide-mobile">Description</th><th>Montant</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th>Véhicule</th><th>Catégorie</th><th class="hide-mobile">Description</th><th>Montant</th><th>Facture</th><th></th></tr></thead>
         <tbody id="allExpensesBody"></tbody>
       </table></div>
     </div>
@@ -630,6 +737,31 @@
     </div>
     <div class="form-group"><label class="form-label">Description</label><input type="text" class="form-input" id="eDesc" placeholder="Ex: Vidange huile moteur"></div>
     <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="eNotes"></textarea></div>
+
+    <!-- INVOICE UPLOAD -->
+    <div class="form-group">
+      <label class="form-label">📎 Facture (photo ou PDF)</label>
+      <div class="invoice-drop-zone" id="invoiceDropZone">
+        <input type="file" id="invoiceFileInput" accept="image/*,application/pdf" onchange="handleInvoiceFile(event)">
+        <span class="dz-icon">🧾</span>
+        <div class="dz-text">
+          <strong>Cliquez</strong> ou déposez une photo / PDF ici<br>
+          <span style="font-size:11px;">JPG, PNG, WEBP, PDF · max 4 Mo</span>
+        </div>
+      </div>
+      <div class="invoice-preview" id="invoicePreview">
+        <button class="invoice-remove-btn" onclick="removeInvoice()" title="Supprimer la facture">×</button>
+        <img id="invoicePreviewImg" src="" alt="Facture" onclick="openLightboxFromPreview()" style="display:none;">
+        <div class="invoice-preview-pdf" id="invoicePreviewPdf" style="display:none;" onclick="openLightboxFromPreview()">
+          <span class="pdf-icon">📄</span>
+          <div class="pdf-info">
+            <div class="pdf-name" id="invoicePdfName">document.pdf</div>
+            <div class="pdf-sub">Cliquez pour visualiser</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="form-actions">
       <button class="btn btn-ghost" onclick="closeModal('addExpenseModal')">Annuler</button>
       <button class="btn btn-primary" id="saveExpenseBtn" onclick="saveExpense()">Enregistrer</button>
@@ -695,6 +827,11 @@ let expenses = [];
 let reminders = [];
 let settings = { currency: '€', distance: 'km', alertDays: 30 };
 let currentVehicleId = null;
+
+// Current invoice data (base64 or null)
+let currentInvoiceData = null;   // base64 string
+let currentInvoiceType = null;   // 'image' | 'pdf'
+let currentInvoiceName = null;   // original filename
 
 // =====================
 //  SYNC INDICATOR
@@ -766,6 +903,119 @@ function daysUntil(dateStr) {
 function reminderStatus(days) {
   if (days < 0) return 'overdue';
   return days <= (settings.alertDays||30) ? 'soon' : 'ok';
+}
+
+// =====================
+//  INVOICE HELPERS
+// =====================
+window.handleInvoiceFile = function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 4 * 1024 * 1024) { toast('Fichier trop volumineux (max 4 Mo)', 'error'); return; }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    currentInvoiceData = e.target.result; // full data URL
+    currentInvoiceName = file.name;
+    currentInvoiceType = file.type.startsWith('image/') ? 'image' : 'pdf';
+    showInvoicePreview(currentInvoiceData, currentInvoiceType, currentInvoiceName);
+  };
+  reader.readAsDataURL(file);
+};
+
+function showInvoicePreview(dataUrl, type, name) {
+  const dropZone = document.getElementById('invoiceDropZone');
+  const preview = document.getElementById('invoicePreview');
+  const img = document.getElementById('invoicePreviewImg');
+  const pdfDiv = document.getElementById('invoicePreviewPdf');
+  const pdfName = document.getElementById('invoicePdfName');
+
+  dropZone.style.display = 'none';
+  preview.classList.add('visible');
+
+  if (type === 'image') {
+    img.src = dataUrl;
+    img.style.display = 'block';
+    pdfDiv.style.display = 'none';
+  } else {
+    img.style.display = 'none';
+    pdfDiv.style.display = 'flex';
+    pdfName.textContent = name || 'document.pdf';
+  }
+}
+
+window.removeInvoice = function() {
+  currentInvoiceData = null;
+  currentInvoiceType = null;
+  currentInvoiceName = null;
+  document.getElementById('invoiceDropZone').style.display = '';
+  document.getElementById('invoicePreview').classList.remove('visible');
+  document.getElementById('invoicePreviewImg').src = '';
+  document.getElementById('invoiceFileInput').value = '';
+};
+
+window.openLightboxFromPreview = function() {
+  if (!currentInvoiceData) return;
+  if (currentInvoiceType === 'image') {
+    openLightbox(currentInvoiceData, currentInvoiceName || 'Facture');
+  } else {
+    // Open PDF in new tab
+    const w = window.open();
+    w.document.write('<iframe src="' + currentInvoiceData + '" width="100%" height="100%" style="border:none;"></iframe>');
+  }
+};
+
+window.openLightbox = function(src, label) {
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('lightboxLabel').textContent = label || '';
+  document.getElementById('lightboxOverlay').classList.add('open');
+};
+
+window.closeLightbox = function(e) {
+  if (e && e.target !== document.getElementById('lightboxOverlay') && e.target !== document.querySelector('.lightbox-close')) return;
+  document.getElementById('lightboxOverlay').classList.remove('open');
+  document.getElementById('lightboxImg').src = '';
+};
+
+window.openInvoice = function(dataUrl, type, name) {
+  if (type === 'image') {
+    openLightbox(dataUrl, name || 'Facture');
+  } else {
+    const w = window.open();
+    w.document.write('<iframe src="' + dataUrl + '" width="100%" height="100%" style="border:none;margin:0;padding:0;"></iframe>');
+  }
+};
+
+// Drag & drop support
+const dropZoneEl = document.getElementById('invoiceDropZone');
+dropZoneEl.addEventListener('dragover', e => { e.preventDefault(); dropZoneEl.classList.add('drag-over'); });
+dropZoneEl.addEventListener('dragleave', () => dropZoneEl.classList.remove('drag-over'));
+dropZoneEl.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZoneEl.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  if (file.size > 4 * 1024 * 1024) { toast('Fichier trop volumineux (max 4 Mo)', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    currentInvoiceData = ev.target.result;
+    currentInvoiceName = file.name;
+    currentInvoiceType = file.type.startsWith('image/') ? 'image' : 'pdf';
+    showInvoicePreview(currentInvoiceData, currentInvoiceType, currentInvoiceName);
+  };
+  reader.readAsDataURL(file);
+});
+
+function invoiceCellHtml(e) {
+  if (!e.invoiceData) return '<span style="color:var(--text-muted);font-size:12px;">—</span>';
+  const type = e.invoiceType || 'image';
+  const name = (e.invoiceName || 'facture').replace(/'/g, "\\'");
+  const dataEscaped = e.invoiceData.replace(/'/g, "\\'");
+  if (type === 'image') {
+    return `<img class="invoice-thumb" src="${e.invoiceData}" alt="Facture" onclick="openInvoice('${dataEscaped}','image','${name}')" title="Voir la facture">`;
+  } else {
+    return `<button class="invoice-pdf-chip" onclick="openInvoice('${dataEscaped}','pdf','${name}')">📄 PDF</button>`;
+  }
 }
 
 // =====================
@@ -964,6 +1214,8 @@ window.openAddExpenseModal = function() {
   document.getElementById('eNotes').value = '';
   document.getElementById('eCategory').value = 'fuel';
   populateVehicleSelect('eVehicle', currentVehicleId);
+  // Reset invoice
+  removeInvoice();
   openModal('addExpenseModal');
 };
 
@@ -982,6 +1234,10 @@ window.saveExpense = async function() {
     desc: document.getElementById('eDesc').value.trim(),
     km: +document.getElementById('eKm').value || null,
     notes: document.getElementById('eNotes').value.trim(),
+    // Invoice fields
+    invoiceData: currentInvoiceData || null,
+    invoiceType: currentInvoiceType || null,
+    invoiceName: currentInvoiceName || null,
     updatedAt: serverTimestamp(),
   };
   try {
@@ -994,6 +1250,7 @@ window.saveExpense = async function() {
       toast('Dépense ajoutée ✓');
     }
     closeModal('addExpenseModal');
+    removeInvoice();
   } catch(e) { toast('Erreur : ' + e.message, 'error'); }
   btn.disabled = false;
   setSyncStatus('');
@@ -1301,9 +1558,10 @@ function renderVehicleExpenses(id) {
         <td>${e.desc||'—'}</td>
         <td class="hide-mobile">${e.km ? fmtKm(e.km) : '—'}</td>
         <td class="amount-cell">${fmt(e.amount)}</td>
+        <td>${invoiceCellHtml(e)}</td>
         <td><button class="btn btn-danger btn-sm" onclick="deleteExpense('${e.id}')">✕</button></td>
       </tr>`).join('')
-    : '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted);">Aucune dépense</td></tr>';
+    : '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">Aucune dépense</td></tr>';
 }
 
 function renderVehicleReminders(id) {
@@ -1366,10 +1624,11 @@ function renderExpenses() {
           <td>${catBadge(e.category)}</td>
           <td class="hide-mobile">${e.desc||'—'}</td>
           <td class="amount-cell">${fmt(e.amount)}</td>
+          <td>${invoiceCellHtml(e)}</td>
           <td><button class="btn btn-danger btn-sm" onclick="deleteExpense('${e.id}')">✕</button></td>
         </tr>`;
       }).join('')
-    : '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted);">Aucune dépense enregistrée</td></tr>';
+    : '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">Aucune dépense enregistrée</td></tr>';
 }
 
 // =====================
