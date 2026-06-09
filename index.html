@@ -746,7 +746,7 @@
         <span class="dz-icon">🧾</span>
         <div class="dz-text">
           <strong>Cliquez</strong> ou déposez une photo / PDF ici<br>
-          <span style="font-size:11px;">JPG, PNG, WEBP, PDF · max 4 Mo</span>
+          <span style="font-size:11px;">JPG, PNG, WEBP · compression auto — PDF · max 20 Mo</span>
         </div>
       </div>
       <div class="invoice-preview" id="invoicePreview">
@@ -911,14 +911,50 @@ function reminderStatus(days) {
 window.handleInvoiceFile = function(event) {
   const file = event.target.files[0];
   if (!file) return;
-  if (file.size > 4 * 1024 * 1024) { toast('Fichier trop volumineux (max 4 Mo)', 'error'); return; }
+  if (file.size > 20 * 1024 * 1024) { toast('Fichier trop volumineux (max 20 Mo)', 'error'); return; }
 
+  currentInvoiceName = file.name;
+  currentInvoiceType = file.type.startsWith('image/') ? 'image' : 'pdf';
+
+  if (currentInvoiceType === 'pdf') {
+    // PDFs: read as-is (already compressed)
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      currentInvoiceData = e.target.result;
+      showInvoicePreview(currentInvoiceData, 'pdf', currentInvoiceName);
+    };
+    reader.readAsDataURL(file);
+    return;
+  }
+
+  // Images: compress via Canvas before storing
   const reader = new FileReader();
   reader.onload = function(e) {
-    currentInvoiceData = e.target.result; // full data URL
-    currentInvoiceName = file.name;
-    currentInvoiceType = file.type.startsWith('image/') ? 'image' : 'pdf';
-    showInvoicePreview(currentInvoiceData, currentInvoiceType, currentInvoiceName);
+    const img = new Image();
+    img.onload = function() {
+      // Target: max 1200px on longest side, JPEG quality 0.75 → typically 80–200 KB
+      const MAX_PX = 1200;
+      const QUALITY = 0.75;
+      let { width, height } = img;
+      if (width > MAX_PX || height > MAX_PX) {
+        if (width >= height) { height = Math.round(height * MAX_PX / width); width = MAX_PX; }
+        else { width = Math.round(width * MAX_PX / height); height = MAX_PX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      const compressed = canvas.toDataURL('image/jpeg', QUALITY);
+      const originalKb = Math.round(file.size / 1024);
+      const compressedKb = Math.round(compressed.length * 0.75 / 1024);
+      console.log(`Invoice compressed: ${originalKb} KB → ${compressedKb} KB`);
+      currentInvoiceData = compressed;
+      showInvoicePreview(currentInvoiceData, 'image', currentInvoiceName);
+      if (compressedKb > 900) {
+        toast(`Image compressée (${compressedKb} KB) — peut dépasser la limite Firestore`, 'error');
+      }
+    };
+    img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 };
