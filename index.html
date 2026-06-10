@@ -713,7 +713,7 @@
 <div class="modal-overlay" id="addExpenseModal">
   <div class="modal">
     <div class="modal-header">
-      <h2 class="modal-title">Ajouter une dépense</h2>
+      <h2 class="modal-title" id="expenseModalTitle">Ajouter une dépense</h2>
       <button class="modal-close" onclick="closeModal('addExpenseModal')">×</button>
     </div>
     <input type="hidden" id="editExpenseId">
@@ -1042,17 +1042,26 @@ dropZoneEl.addEventListener('drop', e => {
   reader.readAsDataURL(file);
 });
 
+// Safe invoice registry — avoids injecting base64 into onclick attributes
+const _invoiceRegistry = new Map();
+
 function invoiceCellHtml(e) {
   if (!e.invoiceData) return '<span style="color:var(--text-muted);font-size:12px;">—</span>';
+  const key = 'inv_' + e.id;
+  _invoiceRegistry.set(key, { data: e.invoiceData, type: e.invoiceType || 'image', name: e.invoiceName || 'facture' });
   const type = e.invoiceType || 'image';
-  const name = (e.invoiceName || 'facture').replace(/'/g, "\\'");
-  const dataEscaped = e.invoiceData.replace(/'/g, "\\'");
   if (type === 'image') {
-    return `<img class="invoice-thumb" src="${e.invoiceData}" alt="Facture" onclick="openInvoice('${dataEscaped}','image','${name}')" title="Voir la facture">`;
+    return `<img class="invoice-thumb" src="${e.invoiceData}" alt="Facture" onclick="openInvoiceByKey('${key}')" title="Voir la facture">`;
   } else {
-    return `<button class="invoice-pdf-chip" onclick="openInvoice('${dataEscaped}','pdf','${name}')">📄 PDF</button>`;
+    return `<button class="invoice-pdf-chip" onclick="openInvoiceByKey('${key}')">📄 PDF</button>`;
   }
 }
+
+window.openInvoiceByKey = function(key) {
+  const inv = _invoiceRegistry.get(key);
+  if (!inv) return;
+  openInvoice(inv.data, inv.type, inv.name);
+};
 
 // =====================
 //  REALTIME LISTENERS
@@ -1243,6 +1252,7 @@ window.openVehicle = function(id) {
 // =====================
 window.openAddExpenseModal = function() {
   document.getElementById('editExpenseId').value = '';
+  document.getElementById('expenseModalTitle').textContent = 'Ajouter une dépense';
   document.getElementById('eDate').value = new Date().toISOString().slice(0,10);
   document.getElementById('eAmount').value = '';
   document.getElementById('eDesc').value = '';
@@ -1250,8 +1260,29 @@ window.openAddExpenseModal = function() {
   document.getElementById('eNotes').value = '';
   document.getElementById('eCategory').value = 'fuel';
   populateVehicleSelect('eVehicle', currentVehicleId);
-  // Reset invoice
   removeInvoice();
+  openModal('addExpenseModal');
+};
+
+window.editExpense = function(id) {
+  const exp = expenses.find(x => x.id === id);
+  if (!exp) return;
+  document.getElementById('editExpenseId').value = exp.id;
+  document.getElementById('expenseModalTitle').textContent = 'Modifier la dépense';
+  document.getElementById('eDate').value = exp.date || '';
+  document.getElementById('eAmount').value = exp.amount || '';
+  document.getElementById('eDesc').value = exp.desc || '';
+  document.getElementById('eKm').value = exp.km || '';
+  document.getElementById('eNotes').value = exp.notes || '';
+  document.getElementById('eCategory').value = exp.category || 'fuel';
+  populateVehicleSelect('eVehicle', exp.vehicleId);
+  removeInvoice();
+  if (exp.invoiceData) {
+    currentInvoiceData = exp.invoiceData;
+    currentInvoiceType = exp.invoiceType || 'image';
+    currentInvoiceName = exp.invoiceName || 'facture';
+    showInvoicePreview(exp.invoiceData, currentInvoiceType, currentInvoiceName);
+  }
   openModal('addExpenseModal');
 };
 
@@ -1595,7 +1626,10 @@ function renderVehicleExpenses(id) {
         <td class="hide-mobile">${e.km ? fmtKm(e.km) : '—'}</td>
         <td class="amount-cell">${fmt(e.amount)}</td>
         <td>${invoiceCellHtml(e)}</td>
-        <td><button class="btn btn-danger btn-sm" onclick="deleteExpense('${e.id}')">✕</button></td>
+        <td style="display:flex;gap:6px;">
+          <button class="btn btn-ghost btn-sm" onclick="editExpense('${e.id}')" title="Modifier">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteExpense('${e.id}')">✕</button>
+        </td>
       </tr>`).join('')
     : '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">Aucune dépense</td></tr>';
 }
@@ -1661,7 +1695,10 @@ function renderExpenses() {
           <td class="hide-mobile">${e.desc||'—'}</td>
           <td class="amount-cell">${fmt(e.amount)}</td>
           <td>${invoiceCellHtml(e)}</td>
-          <td><button class="btn btn-danger btn-sm" onclick="deleteExpense('${e.id}')">✕</button></td>
+          <td style="display:flex;gap:6px;">
+            <button class="btn btn-ghost btn-sm" onclick="editExpense('${e.id}')" title="Modifier">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteExpense('${e.id}')">✕</button>
+          </td>
         </tr>`;
       }).join('')
     : '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">Aucune dépense enregistrée</td></tr>';
